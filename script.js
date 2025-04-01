@@ -22,41 +22,32 @@ function angleBetween(p1, p2, p3) {
   return radians * (180 / Math.PI);
 }
 
-function drawKeypoints(keypoints, minConfidence, ctx) {
-  keypoints.forEach(keypoint => {
-    if (keypoint.score > minConfidence) {
-      const { y, x } = keypoint.position;
+function drawKeypoints(keypoints) {
+  keypoints.forEach(k => {
+    if (k.score > 0.5) {
       ctx.beginPath();
-      ctx.arc(x, y, 5, 0, 2 * Math.PI);
-      ctx.fillStyle = 'red';
+      ctx.arc(k.position.x, k.position.y, 5, 0, 2 * Math.PI);
+      ctx.fillStyle = "#00e5ff";
       ctx.fill();
     }
   });
 }
 
-function drawSkeleton(keypoints, minConfidence, ctx) {
-  const adjacentKeyPoints = posenet.getAdjacentKeyPoints(keypoints, minConfidence);
-  adjacentKeyPoints.forEach(([from, to]) => {
-    ctx.beginPath();
-    ctx.moveTo(from.position.x, from.position.y);
-    ctx.lineTo(to.position.x, to.position.y);
-    ctx.strokeStyle = 'blue';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  });
-}
-
 async function detectPose() {
   const pose = await net.estimateSinglePose(video, {
-    flipHorizontal: true
+    flipHorizontal: false // we're flipping canvas instead
   });
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-  // ➕ Draw keypoints and skeleton
-  drawKeypoints(pose.keypoints, 0.6, ctx);
-  drawSkeleton(pose.keypoints, 0.6, ctx);
+  // Flip the canvas horizontally for mirror effect
+  ctx.save();
+  ctx.scale(-1, 1);
+  ctx.translate(-canvas.width, 0);
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  ctx.restore();
+
+  drawKeypoints(pose.keypoints);
 
   const leftShoulder = pose.keypoints.find(p => p.part === 'leftShoulder');
   const leftElbow = pose.keypoints.find(p => p.part === 'leftElbow');
@@ -80,6 +71,13 @@ async function detectPose() {
 
 async function main() {
   await setupCamera();
+
+  // ✅ Ensure video is playable before getting dimensions
+  await new Promise(resolve => {
+    if (video.readyState >= 3) resolve(); // HAVE_FUTURE_DATA
+    else video.oncanplay = resolve;
+  });
+
   canvas = document.getElementById('output');
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
