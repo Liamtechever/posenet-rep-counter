@@ -6,26 +6,21 @@ body {
     padding: 0;
   }
   
-  video, canvas {
-    width: 640px;
-    height: 480px;
-    position: relative;
-    z-index: 1;
+  #video {
+    display: none; /* Hide the raw video feed */
   }
   
   #output {
-    position: absolute;
-    top: 100px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 2;
+    width: 640px;
+    height: 480px;
+    margin-top: 50px;
+    border: 1px solid #ccc;
   }
   
   #repCount {
-    position: relative;
-    margin-top: 500px;
+    margin-top: 20px;
     font-size: 24px;
     font-weight: bold;
-    z-index: 3;
   }
+  
   
