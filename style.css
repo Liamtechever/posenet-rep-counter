@@ -1,0 +1,17 @@
+body {
+    text-align: center;
+    font-family: Arial, sans-serif;
+    background: #f4f4f4;
+  }
+  video, canvas {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 100px;
+  }
+  #repCount {
+    margin-top: 500px;
+    font-size: 24px;
+    font-weight: bold;
+  }
+  
