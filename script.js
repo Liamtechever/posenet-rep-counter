@@ -35,12 +35,15 @@ function drawKeypoints(keypoints) {
 
 async function detectPose() {
   const pose = await net.estimateSinglePose(video, {
-    flipHorizontal: false // we're flipping canvas instead
+    flipHorizontal: false // we flip the canvas instead
   });
+
+  console.log("Pose received:", pose); // ✅ Debug log
+  console.log("Sample keypoint:", pose.keypoints[0]);
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Flip the canvas horizontally for mirror effect
+  // Flip canvas horizontally
   ctx.save();
   ctx.scale(-1, 1);
   ctx.translate(-canvas.width, 0);
@@ -72,9 +75,8 @@ async function detectPose() {
 async function main() {
   await setupCamera();
 
-  // ✅ Ensure video is playable before getting dimensions
   await new Promise(resolve => {
-    if (video.readyState >= 3) resolve(); // HAVE_FUTURE_DATA
+    if (video.readyState >= 3) resolve();
     else video.oncanplay = resolve;
   });
 
@@ -83,7 +85,13 @@ async function main() {
   canvas.height = video.videoHeight;
   ctx = canvas.getContext('2d');
 
-  net = await posenet.load();
+  net = await posenet.load({
+    architecture: 'MobileNetV1',
+    outputStride: 16,
+    inputResolution: { width: 640, height: 480 },
+    multiplier: 0.75
+  });
+
   detectPose();
 }
 
