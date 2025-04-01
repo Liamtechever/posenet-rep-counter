@@ -30,6 +30,9 @@ async function detectPose() {
     flipHorizontal: true
   });
 
+  drawKeypoints(pose.keypoints, 0.6, ctx);
+  drawSkeleton(pose.keypoints, 0.6, ctx);
+
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
@@ -52,6 +55,32 @@ async function detectPose() {
 
   requestAnimationFrame(detectPose);
 }
+
+
+function drawKeypoints(keypoints, minConfidence, ctx) {
+    keypoints.forEach(keypoint => {
+      if (keypoint.score > minConfidence) {
+        const { y, x } = keypoint.position;
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, 2 * Math.PI);
+        ctx.fillStyle = 'red';
+        ctx.fill();
+      }
+    });
+  }
+  
+  function drawSkeleton(keypoints, minConfidence, ctx) {
+    const adjacentKeyPoints = posenet.getAdjacentKeyPoints(keypoints, minConfidence);
+    adjacentKeyPoints.forEach(([from, to]) => {
+      ctx.beginPath();
+      ctx.moveTo(from.position.x, from.position.y);
+      ctx.lineTo(to.position.x, to.position.y);
+      ctx.strokeStyle = 'blue';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+  }
+
 
 async function main() {
   await setupCamera();
