@@ -23,15 +23,18 @@ function angleBetween(p1, p2, p3) {
 }
 
 function drawKeypoints(keypoints) {
-  keypoints.forEach(k => {
-    if (k.score > 0.5) {
-      ctx.beginPath();
-      ctx.arc(k.position.x, k.position.y, 5, 0, 2 * Math.PI);
-      ctx.fillStyle = "#00e5ff";
-      ctx.fill();
-    }
-  });
-}
+    ctx.save(); // Start safe drawing block
+    ctx.fillStyle = "#00e5ff"; // Bright blue
+    keypoints.forEach(k => {
+      if (k.score > 0.5) {
+        ctx.beginPath();
+        ctx.arc(k.position.x, k.position.y, 6, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+    });
+    ctx.restore(); // End drawing block
+  }
+  
 
 async function detectPose() {
   const pose = await net.estimateSinglePose(video, {
