@@ -1,96 +1,117 @@
-let net, video, canvas, ctx;
-let repCount = 0;
-let down = false;
-let previousPose = null; // To hold the previous pose for movement comparisons
+// universalState.js
 
-async function setupCamera() {
-  video = document.getElementById("video");
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: false,
-    video: { width: 600, height: 500, facingMode: "user" }
-  });
-  video.srcObject = stream;
-  await new Promise(resolve => (video.onloadedmetadata = resolve));
-  video.play();
-}
-
-function angleBetween(p1, p2, p3) {
-  const radians = Math.acos(
-    ((p2.x - p1.x) * (p2.x - p3.x) + (p2.y - p1.y) * (p2.y - p3.y)) /
-    (Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2) *
-     Math.sqrt((p2.x - p3.x) ** 2 + (p2.y - p3.y) ** 2))
-  );
-  return radians * (180 / Math.PI);
-}
-
-function drawVideoAndKeypoints(pose) {
-  // Clear the canvas
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  // Draw the current video frame onto the canvas
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  // Draw each keypoint if its score is high enough
-  pose.keypoints.forEach(k => {
-    if (k.score > 0.5) {
-      ctx.beginPath();
-      ctx.arc(k.position.x, k.position.y, 5, 0, 2 * Math.PI);
-      ctx.fillStyle = "#00e5ff";
-      ctx.fill();
+// Global universal state object
+const universalState = {
+    posture: "unknown", // "standing", "squatting", "lying down"
+    movement: {
+      walkingTowardCamera: false,
+      armSwingRight: false,
+      armSwingLeft: false,
+      // Additional movement flags can be added here
+    },
+    keyMetrics: {
+      leftKneeAngle: null,
+      rightKneeAngle: null,
+      // You can add other computed values (e.g., shoulder distance) here
     }
-  });
-}
-
-async function detectPose() {
-  // Estimate the current pose from the video feed
-  const pose = await net.estimateSinglePose(video, { flipHorizontal: false });
-
-  // Update the universal state using the current and previous poses.
-  // (The updateUniversalState function should be defined in universalState.js.)
-  updateUniversalState(pose, previousPose);
-  console.log("Universal State:", universalState);
-
-  // Draw the video frame and keypoints on the canvas
-  drawVideoAndKeypoints(pose);
-
-  // Simple rep counting logic (example using left arm angles)
-  const leftShoulder = pose.keypoints.find(p => p.part === "leftShoulder");
-  const leftElbow = pose.keypoints.find(p => p.part === "leftElbow");
-  const leftWrist = pose.keypoints.find(p => p.part === "leftWrist");
-
-  if ([leftShoulder, leftElbow, leftWrist].every(p => p.score > 0.6)) {
-    const angle = angleBetween(
-      leftShoulder.position,
-      leftElbow.position,
-      leftWrist.position
+  };
+  
+  // Helper: Calculate the angle between three points (in degrees)
+  function calculateAngle(a, b, c) {
+    const radians = Math.acos(
+      ((b.x - a.x) * (b.x - c.x) + (b.y - a.y) * (b.y - c.y)) /
+      (Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2) *
+       Math.sqrt((b.x - c.x) ** 2 + (b.y - c.y) ** 2))
     );
-
-    if (angle < 45 && !down) {
-      down = true;
-    }
-    if (angle > 160 && down) {
-      down = false;
-      repCount++;
-      document.getElementById("repCount").innerText = `Reps: ${repCount}`;
-    }
+    return radians * (180 / Math.PI);
   }
-
-  // Save the current pose to compare in the next frame
-  previousPose = pose;
-  requestAnimationFrame(detectPose);
-}
-
-async function main() {
-  await setupCamera();
-  canvas = document.getElementById("output");
-  ctx = canvas.getContext("2d");
-
-  net = await posenet.load({
-    architecture: "MobileNetV1",
-    outputStride: 16,
-    inputResolution: { width: 600, height: 500 },
-    multiplier: 0.75,
-  });
-
-  detectPose();
-}
-
-main();
+  
+  // Helper: Euclidean distance between two points
+  function distance(p1, p2) {
+    return Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
+  }
+  
+  /**
+   * updateUniversalState(pose, previousPose)
+   *  - pose: the current PoseNet output
+   *  - previousPose (optional): the previous frame’s pose (to detect movement)
+   *
+   * Returns the updated universalState object.
+   */
+  function updateUniversalState(pose, previousPose) {
+    // --- Posture Detection ---
+    const leftHip = pose.keypoints.find(k => k.part === "leftHip");
+    const leftKnee = pose.keypoints.find(k => k.part === "leftKnee");
+    const leftAnkle = pose.keypoints.find(k => k.part === "leftAnkle");
+    const rightHip = pose.keypoints.find(k => k.part === "rightHip");
+    const rightKnee = pose.keypoints.find(k => k.part === "rightKnee");
+    const rightAnkle = pose.keypoints.find(k => k.part === "rightAnkle");
+    const nose = pose.keypoints.find(k => k.part === "nose");
+  
+    let leftKneeAngle = null;
+    let rightKneeAngle = null;
+  
+    if (leftHip && leftKnee && leftAnkle &&
+        leftHip.score > 0.5 && leftKnee.score > 0.5 && leftAnkle.score > 0.5) {
+      leftKneeAngle = calculateAngle(leftHip.position, leftKnee.position, leftAnkle.position);
+    }
+    if (rightHip && rightKnee && rightAnkle &&
+        rightHip.score > 0.5 && rightKnee.score > 0.5 && rightAnkle.score > 0.5) {
+      rightKneeAngle = calculateAngle(rightHip.position, rightKnee.position, rightAnkle.position);
+    }
+  
+    // If both knees are bent significantly, assume squatting; otherwise, standing.
+    if (leftKneeAngle && rightKneeAngle) {
+      if (leftKneeAngle < 100 && rightKneeAngle < 100) {
+        universalState.posture = "squatting";
+      } else {
+        universalState.posture = "standing";
+      }
+    }
+  
+    // If the nose is very low (near the bottom of the canvas), assume lying down.
+    if (nose && nose.score > 0.5) {
+      if (nose.position.y > 450) {
+        universalState.posture = "lying down";
+      }
+    }
+  
+    // Store computed angles for debugging or further logic
+    universalState.keyMetrics.leftKneeAngle = leftKneeAngle;
+    universalState.keyMetrics.rightKneeAngle = rightKneeAngle;
+  
+    // --- Movement Detection (using previousPose if provided) ---
+    if (previousPose) {
+      // Detect right arm swing
+      const prevRightWrist = previousPose.keypoints.find(k => k.part === "rightWrist");
+      const currRightWrist = pose.keypoints.find(k => k.part === "rightWrist");
+      if (prevRightWrist && currRightWrist &&
+          prevRightWrist.score > 0.5 && currRightWrist.score > 0.5) {
+        let dx = currRightWrist.position.x - prevRightWrist.position.x;
+        universalState.movement.armSwingRight = dx > 20; // adjust threshold as needed
+      }
+      // Detect left arm swing
+      const prevLeftWrist = previousPose.keypoints.find(k => k.part === "leftWrist");
+      const currLeftWrist = pose.keypoints.find(k => k.part === "leftWrist");
+      if (prevLeftWrist && currLeftWrist &&
+          prevLeftWrist.score > 0.5 && currLeftWrist.score > 0.5) {
+        let dx = currLeftWrist.position.x - prevLeftWrist.position.x;
+        universalState.movement.armSwingLeft = dx < -20;
+      }
+      // Detect walking toward the camera by comparing shoulder distances
+      const prevLeftShoulder = previousPose.keypoints.find(k => k.part === "leftShoulder");
+      const prevRightShoulder = previousPose.keypoints.find(k => k.part === "rightShoulder");
+      const currLeftShoulder = pose.keypoints.find(k => k.part === "leftShoulder");
+      const currRightShoulder = pose.keypoints.find(k => k.part === "rightShoulder");
+      if (prevLeftShoulder && prevRightShoulder && currLeftShoulder && currRightShoulder) {
+        const prevDistance = distance(prevLeftShoulder.position, prevRightShoulder.position);
+        const currDistance = distance(currLeftShoulder.position, currRightShoulder.position);
+        universalState.movement.walkingTowardCamera = (currDistance > prevDistance + 10);
+      }
+    }
+  
+    return universalState;
+  }
+  
+  console.log("Loaded universalState.js");
+  
