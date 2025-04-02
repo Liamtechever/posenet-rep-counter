@@ -8,20 +8,19 @@
 </head>
 <body>
   <h1>Workout Rep Counter</h1>
-  
-  <!-- We’ll hide this video element (no need to show raw HTML video). -->
-  <video id="video" width="600" height="500" playsinline autoplay muted style="display: none;"></video>
-  
-  <!-- The canvas will show the video feed + keypoints -->
+  <video id="video" playsinline autoplay muted width="600" height="500" style="display: none;"></video>
   <canvas id="output" width="600" height="500"></canvas>
-  
   <div id="repCount">Reps: 0</div>
+  <div id="feedback"></div>
 
-  <!-- TensorFlow + PoseNet -->
+  <!-- TensorFlow and PoseNet -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet@2.2.1/dist/posenet.min.js"></script>
   
-  <!-- Your main logic -->
+  <!-- Universal state module must come first -->
+  <script src="universalState.js"></script>
+  
+  <!-- Main script -->
   <script src="script.js"></script>
 </body>
 </html>
