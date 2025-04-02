@@ -8,8 +8,9 @@
 </head>
 <body>
   <h1>Workout Rep Counter</h1>
-  <video id="video" playsinline autoplay></video>
-  <canvas id="output"></canvas>
+  <!-- Set fixed dimensions for consistency -->
+  <video id="video" playsinline autoplay muted width="600" height="500"></video>
+  <canvas id="output" width="600" height="500"></canvas>
   <div id="repCount">Reps: 0</div>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet@2.2.1/dist/posenet.min.js"></script>
