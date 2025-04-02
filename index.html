@@ -8,20 +8,21 @@
 </head>
 <body>
   <h1>Workout Rep Counter</h1>
+  <!-- Hidden video element (source) -->
   <video id="video" playsinline autoplay muted width="600" height="500" style="display: none;"></video>
+  <!-- Canvas where we draw video frames & overlays -->
   <canvas id="output" width="600" height="500"></canvas>
   <div id="repCount">Reps: 0</div>
   <div id="feedback"></div>
-  <!-- New element to display the current posture -->
+  <!-- Display current posture -->
   <div id="postureStatus">Current posture: unknown</div>
-
+  
   <!-- TensorFlow and PoseNet libraries -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet@2.2.1/dist/posenet.min.js"></script>
   
-  <!-- Universal state module (must be loaded before main script) -->
+  <!-- Universal state module must be loaded first -->
   <script src="universalState.js"></script>
-  
   <!-- Main script -->
   <script src="script.js"></script>
 </body>

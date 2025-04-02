@@ -2,18 +2,24 @@
 
 // Global universal state object
 const universalState = {
-    posture: "unknown", // "standing", "squatting", "lying down"
+    posture: "unknown", // "standing", "squatting", "sitting", "lying down"
     movement: {
       walkingTowardCamera: false,
       armSwingRight: false,
       armSwingLeft: false,
-      // Additional movement flags can be added here
     },
     keyMetrics: {
       leftKneeAngle: null,
       rightKneeAngle: null,
-      // You can add other computed values (e.g., shoulder distance) here
+      leftLegVertical: null,
+      rightLegVertical: null,
     }
+  };
+  
+  // Calibration data (to be set during a T-pose)
+  const calibrationData = {
+    shoulderDistance: null, // baseline distance between left and right shoulders
+    calibrated: false
   };
   
   // Helper: Calculate the angle between three points (in degrees)
@@ -32,11 +38,22 @@ const universalState = {
   }
   
   /**
+   * calibrateTpose(pose)
+   * When the user holds a T-pose, capture the baseline shoulder distance.
+   */
+  function calibrateTpose(pose) {
+    const leftShoulder = pose.keypoints.find(k => k.part === "leftShoulder");
+    const rightShoulder = pose.keypoints.find(k => k.part === "rightShoulder");
+    if (leftShoulder && rightShoulder && leftShoulder.score > 0.5 && rightShoulder.score > 0.5) {
+      calibrationData.shoulderDistance = distance(leftShoulder.position, rightShoulder.position);
+      calibrationData.calibrated = true;
+      console.log("Calibration complete. Shoulder distance:", calibrationData.shoulderDistance);
+    }
+  }
+  
+  /**
    * updateUniversalState(pose, previousPose)
-   *  - pose: the current PoseNet output
-   *  - previousPose (optional): the previous frame’s pose (to detect movement)
-   *
-   * Returns the updated universalState object.
+   * Updates the universalState based on the current pose.
    */
   function updateUniversalState(pose, previousPose) {
     // --- Posture Detection ---
@@ -60,37 +77,69 @@ const universalState = {
       rightKneeAngle = calculateAngle(rightHip.position, rightKnee.position, rightAnkle.position);
     }
   
-    // If both knees are bent significantly, assume squatting; otherwise, standing.
-    if (leftKneeAngle && rightKneeAngle) {
-      if (leftKneeAngle < 100 && rightKneeAngle < 100) {
-        universalState.posture = "squatting";
-      } else {
-        universalState.posture = "standing";
-      }
+    // Compute vertical distances (knee to ankle)
+    let leftLegVertical = null;
+    let rightLegVertical = null;
+    if (leftKnee && leftAnkle && leftKnee.score > 0.5 && leftAnkle.score > 0.5) {
+      leftLegVertical = leftAnkle.position.y - leftKnee.position.y;
+    }
+    if (rightKnee && rightAnkle && rightKnee.score > 0.5 && rightAnkle.score > 0.5) {
+      rightLegVertical = rightAnkle.position.y - rightKnee.position.y;
     }
   
-    // If the nose is very low (near the bottom of the canvas), assume lying down.
-    if (nose && nose.score > 0.5) {
-      if (nose.position.y > 450) {
-        universalState.posture = "lying down";
-      }
-    }
-  
-    // Store computed angles for debugging or further logic
     universalState.keyMetrics.leftKneeAngle = leftKneeAngle;
     universalState.keyMetrics.rightKneeAngle = rightKneeAngle;
+    universalState.keyMetrics.leftLegVertical = leftLegVertical;
+    universalState.keyMetrics.rightLegVertical = rightLegVertical;
+  
+    // Decide on posture using calibration data if available
+    if (calibrationData.calibrated && calibrationData.shoulderDistance) {
+      // Set thresholds relative to shoulder distance (e.g., 15%)
+      let leftThreshold = calibrationData.shoulderDistance * 0.15;
+      let rightThreshold = calibrationData.shoulderDistance * 0.15;
+      
+      if (leftLegVertical !== null && rightLegVertical !== null) {
+        if (leftLegVertical < leftThreshold && rightLegVertical < rightThreshold) {
+          universalState.posture = "standing";
+        } else if (leftKneeAngle !== null && rightKneeAngle !== null) {
+          if (leftKneeAngle < 100 && rightKneeAngle < 100) {
+            universalState.posture = "squatting";
+          } else {
+            universalState.posture = "standing";
+          }
+        } else {
+          universalState.posture = "unknown";
+        }
+      } else {
+        universalState.posture = "unknown";
+      }
+    } else {
+      // Fallback: use fixed thresholds if not calibrated
+      if (leftKneeAngle && rightKneeAngle) {
+        if (leftKneeAngle < 100 && rightKneeAngle < 100) {
+          universalState.posture = "squatting";
+        } else {
+          universalState.posture = "standing";
+        }
+      } else {
+        universalState.posture = "unknown";
+      }
+    }
+  
+    // Additional check: if the nose is very low, assume lying down.
+    if (nose && nose.score > 0.5 && nose.position.y > 450) {
+      universalState.posture = "lying down";
+    }
   
     // --- Movement Detection (using previousPose if provided) ---
     if (previousPose) {
-      // Detect right arm swing
       const prevRightWrist = previousPose.keypoints.find(k => k.part === "rightWrist");
       const currRightWrist = pose.keypoints.find(k => k.part === "rightWrist");
       if (prevRightWrist && currRightWrist &&
           prevRightWrist.score > 0.5 && currRightWrist.score > 0.5) {
         let dx = currRightWrist.position.x - prevRightWrist.position.x;
-        universalState.movement.armSwingRight = dx > 20; // adjust threshold as needed
+        universalState.movement.armSwingRight = dx > 20;
       }
-      // Detect left arm swing
       const prevLeftWrist = previousPose.keypoints.find(k => k.part === "leftWrist");
       const currLeftWrist = pose.keypoints.find(k => k.part === "leftWrist");
       if (prevLeftWrist && currLeftWrist &&
@@ -98,7 +147,6 @@ const universalState = {
         let dx = currLeftWrist.position.x - prevLeftWrist.position.x;
         universalState.movement.armSwingLeft = dx < -20;
       }
-      // Detect walking toward the camera by comparing shoulder distances
       const prevLeftShoulder = previousPose.keypoints.find(k => k.part === "leftShoulder");
       const prevRightShoulder = previousPose.keypoints.find(k => k.part === "rightShoulder");
       const currLeftShoulder = pose.keypoints.find(k => k.part === "leftShoulder");
