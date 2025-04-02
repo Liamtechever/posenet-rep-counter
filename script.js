@@ -23,20 +23,27 @@ function angleBetween(p1, p2, p3) {
 }
 
 function drawKeypoints(keypoints) {
-  ctx.save();
-  keypoints.forEach(k => {
-    if (k.score > 0.5) {
-      // Flip the x-coordinate manually:
-      let flippedX = canvas.width - k.position.x;
-      let y = k.position.y;
-      ctx.beginPath();
-      ctx.arc(flippedX, y, 6, 0, 2 * Math.PI);
-      ctx.fillStyle = "#00e5ff";
-      ctx.fill();
-    }
-  });
-  ctx.restore();
-}
+    ctx.save();
+    keypoints.forEach(k => {
+      if (k.score > 0.5) {
+        console.log(
+          "Part:", k.part,
+          "X:", k.position.x,
+          "Y:", k.position.y,
+          "Score:", k.score
+        );
+        // The rest of your dot-drawing code
+        let flippedX = canvas.width - k.position.x;
+        let y = k.position.y;
+        ctx.beginPath();
+        ctx.arc(flippedX, y, 6, 0, 2 * Math.PI);
+        ctx.fillStyle = "#00e5ff";
+        ctx.fill();
+      }
+    });
+    ctx.restore();
+  }
+  
 
 async function detectPose() {
   // Use flipHorizontal: false because we are handling flip manually
