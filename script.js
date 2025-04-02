@@ -42,42 +42,46 @@ function drawVideoAndKeypoints(pose) {
 }
 
 async function detectPose() {
-  // Estimate the current pose
-  const pose = await net.estimateSinglePose(video, { flipHorizontal: false });
-  
-  // Update universal state using the current and previous pose
-  updateUniversalState(pose, previousPose);
-  console.log("Universal State:", universalState);
-  
-  // Draw the video frame and keypoints
-  drawVideoAndKeypoints(pose);
-  
-  // Example rep counting logic (using left arm angle)
-  const leftShoulder = pose.keypoints.find(p => p.part === "leftShoulder");
-  const leftElbow = pose.keypoints.find(p => p.part === "leftElbow");
-  const leftWrist = pose.keypoints.find(p => p.part === "leftWrist");
-  
-  if ([leftShoulder, leftElbow, leftWrist].every(p => p.score > 0.6)) {
-    const angle = angleBetween(
-      leftShoulder.position,
-      leftElbow.position,
-      leftWrist.position
-    );
+    // Estimate the current pose
+    const pose = await net.estimateSinglePose(video, { flipHorizontal: false });
     
-    if (angle < 45 && !down) {
-      down = true;
+    // Update universal state using current and previous poses
+    updateUniversalState(pose, previousPose);
+    console.log("Universal State:", universalState);
+    
+    // Update UI with the current posture
+    document.getElementById("postureStatus").innerText = "Current posture: " + universalState.posture;
+    
+    // Draw video frame and keypoints on the canvas
+    drawVideoAndKeypoints(pose);
+    
+    // Example rep counting logic...
+    const leftShoulder = pose.keypoints.find(p => p.part === "leftShoulder");
+    const leftElbow = pose.keypoints.find(p => p.part === "leftElbow");
+    const leftWrist = pose.keypoints.find(p => p.part === "leftWrist");
+    
+    if ([leftShoulder, leftElbow, leftWrist].every(p => p.score > 0.6)) {
+      const angle = angleBetween(
+        leftShoulder.position,
+        leftElbow.position,
+        leftWrist.position
+      );
+      
+      if (angle < 45 && !down) {
+        down = true;
+      }
+      if (angle > 160 && down) {
+        down = false;
+        repCount++;
+        document.getElementById("repCount").innerText = `Reps: ${repCount}`;
+      }
     }
-    if (angle > 160 && down) {
-      down = false;
-      repCount++;
-      document.getElementById("repCount").innerText = `Reps: ${repCount}`;
-    }
+    
+    // Save current pose for next frame's movement detection
+    previousPose = pose;
+    requestAnimationFrame(detectPose);
   }
   
-  // Store current pose for next frame's movement detection
-  previousPose = pose;
-  requestAnimationFrame(detectPose);
-}
 
 async function main() {
   await setupCamera();
