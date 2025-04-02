@@ -1,6 +1,7 @@
 let net, video, canvas, ctx;
 let repCount = 0;
 let down = false;
+let previousPose = null; // To store the previous pose for movement detection
 
 async function setupCamera() {
   video = document.getElementById('video');
@@ -44,10 +45,14 @@ async function detectPose() {
   // Estimate single pose (no flipping, since we draw the video directly)
   const pose = await net.estimateSinglePose(video, { flipHorizontal: false });
 
-  // Draw video + keypoints
+  // Update the universal state using the current and previous poses.
+  updateUniversalState(pose, previousPose);
+  console.log("Universal State:", universalState);
+
+  // Draw the video frame and keypoints
   drawVideoAndKeypoints(pose);
 
-  // Simple rep counting example (elbow angle)
+  // Simple rep counting example (using left arm)
   const leftShoulder = pose.keypoints.find((p) => p.part === "leftShoulder");
   const leftElbow = pose.keypoints.find((p) => p.part === "leftElbow");
   const leftWrist = pose.keypoints.find((p) => p.part === "leftWrist");
@@ -68,6 +73,9 @@ async function detectPose() {
       document.getElementById("repCount").innerText = `Reps: ${repCount}`;
     }
   }
+
+  // Store current pose for next frame comparison
+  previousPose = pose;
 
   requestAnimationFrame(detectPose);
 }
