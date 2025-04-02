@@ -26,8 +26,11 @@ function drawKeypoints(keypoints) {
   ctx.save();
   keypoints.forEach(k => {
     if (k.score > 0.5) {
+      // Flip the x-coordinate manually:
+      let flippedX = canvas.width - k.position.x;
+      let y = k.position.y;
       ctx.beginPath();
-      ctx.arc(k.position.x, k.position.y, 6, 0, 2 * Math.PI);
+      ctx.arc(flippedX, y, 6, 0, 2 * Math.PI);
       ctx.fillStyle = "#00e5ff";
       ctx.fill();
     }
@@ -36,27 +39,31 @@ function drawKeypoints(keypoints) {
 }
 
 async function detectPose() {
+  // Use flipHorizontal: false because we are handling flip manually
   const pose = await net.estimateSinglePose(video, {
-    flipHorizontal: true // Let PoseNet do the flipping
+    flipHorizontal: false
   });
 
   console.log("Pose received:", pose);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Draw the mirrored video directly (no manual flip)
+  // Manually flip the canvas so the video appears mirrored
+  ctx.save();
+  ctx.scale(-1, 1);
+  ctx.translate(-canvas.width, 0);
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  ctx.restore();
 
-  // Draw the keypoints (already flipped by PoseNet)
+  // Draw the keypoints (with flipped x-coordinates)
   drawKeypoints(pose.keypoints);
 
-  // Rep logic
+  // Rep counting logic remains unchanged
   const leftShoulder = pose.keypoints.find(p => p.part === 'leftShoulder');
   const leftElbow = pose.keypoints.find(p => p.part === 'leftElbow');
   const leftWrist = pose.keypoints.find(p => p.part === 'leftWrist');
 
   if ([leftShoulder, leftElbow, leftWrist].every(p => p.score > 0.6)) {
     const angle = angleBetween(leftShoulder.position, leftElbow.position, leftWrist.position);
-
     if (angle < 45 && !down) {
       down = true;
     }
@@ -73,7 +80,6 @@ async function detectPose() {
 async function main() {
   await setupCamera();
 
-  // Wait for video to be ready
   await new Promise(resolve => {
     if (video.readyState >= 3) resolve();
     else video.oncanplay = resolve;
